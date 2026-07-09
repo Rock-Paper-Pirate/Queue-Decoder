@@ -1,0 +1,1072 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Queue Decoder</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1a1a26;
+    --border: rgba(255,255,255,0.07);
+    --border-bright: rgba(255,255,255,0.14);
+    --text: #e8e8f0;
+    --muted: #6b6b80;
+    --accent: #4f9eff;
+    --accent-dim: rgba(79,158,255,0.12);
+    --green: #3ddc84;
+    --green-dim: rgba(61,220,132,0.12);
+    --amber: #f5a623;
+    --amber-dim: rgba(245,166,35,0.12);
+    --red: #ff5c5c;
+    --red-dim: rgba(255,92,92,0.12);
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-weight: 300;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0 16px 80px;
+  }
+
+  /* ── Page switcher nav ── */
+  .page-nav {
+    width: 100%;
+    max-width: 720px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 0 0;
+    margin-bottom: 32px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 14px;
+  }
+  .nav-brand {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--muted);
+    letter-spacing: 0.04em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .nav-brand .dot {
+    width: 8px; height: 8px;
+    background: var(--accent);
+    border-radius: 50%;
+  }
+  .nav-btn {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--border-bright);
+    background: var(--surface2);
+    color: var(--muted);
+    cursor: pointer;
+    display: flex; align-items: center; gap: 7px;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+  }
+  .nav-btn:hover { background: rgba(255,255,255,0.06); color: var(--text); border-color: rgba(255,255,255,0.2); }
+  .nav-btn svg { width: 13px; height: 13px; flex-shrink: 0; }
+
+  /* ── Pages ── */
+  .page { width: 100%; max-width: 720px; }
+  #pageHelp { display: none; line-height: 1.7; }
+
+  /* ════════════════════════════════════════ APP STYLES ══ */
+
+  .app-inner { max-width: 680px; margin: 0 auto; }
+
+  .header { margin-bottom: 40px; padding-bottom: 24px; border-bottom: 1px solid var(--border); }
+  .header-top { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+  .logo {
+    width: 32px; height: 32px; background: var(--accent); border-radius: 8px;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .logo svg { width: 18px; height: 18px; fill: #0a0a0f; }
+  h1 { font-family: var(--mono); font-size: 18px; font-weight: 500; letter-spacing: -0.02em; color: var(--text); }
+  .header-sub { font-size: 13px; color: var(--muted); line-height: 1.6; margin-left: 44px; }
+
+  .provider-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 20px; }
+  .chip {
+    font-family: var(--mono); font-size: 11px; padding: 4px 10px; border-radius: 4px;
+    border: 1px solid var(--border); color: var(--muted); background: var(--surface);
+    letter-spacing: 0.04em; transition: border-color 0.2s, color 0.2s;
+  }
+  .chip.active { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+  .chip.label { border: none; background: none; color: var(--muted); cursor: default; padding-left: 0; }
+
+  .input-block { margin-bottom: 8px; }
+  .input-label {
+    font-family: var(--mono); font-size: 11px; color: var(--muted);
+    letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 8px; display: block;
+  }
+  textarea {
+    width: 100%; height: 72px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text); font-family: var(--mono); font-size: 12px;
+    line-height: 1.6; padding: 12px 14px; resize: none; transition: border-color 0.2s;
+  }
+  textarea:focus { outline: none; border-color: var(--border-bright); }
+  textarea::placeholder { color: var(--muted); }
+
+  .btn-row { display: flex; gap: 8px; margin-top: 10px; }
+  .btn {
+    font-family: var(--mono); font-size: 12px; font-weight: 500; letter-spacing: 0.04em;
+    padding: 0 18px; height: 38px; border-radius: 6px; border: 1px solid var(--border-bright);
+    background: var(--surface2); color: var(--text); cursor: pointer;
+    display: flex; align-items: center; gap: 8px;
+    transition: background 0.15s, border-color 0.15s; white-space: nowrap;
+  }
+  .btn:hover { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.2); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #0a0a0f; font-weight: 500; flex: 1; }
+  .btn.primary:hover { background: #6cb0ff; }
+  .btn svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+  .error {
+    margin-top: 14px; padding: 12px 16px; background: var(--red-dim);
+    border: 1px solid rgba(255,92,92,0.25); border-radius: 8px; font-size: 13px;
+    color: var(--red); display: none; font-family: var(--mono); line-height: 1.5;
+  }
+  .divider { height: 1px; background: var(--border); margin: 32px 0; }
+  .results { display: none; }
+
+  .detected-badge {
+    display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono);
+    font-size: 11px; letter-spacing: 0.06em; color: var(--accent); background: var(--accent-dim);
+    border: 1px solid rgba(79,158,255,0.2); padding: 4px 10px; border-radius: 4px; margin-bottom: 20px;
+  }
+  .detected-badge svg { width: 12px; height: 12px; }
+
+  .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 10px; }
+  .metric { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; }
+  .metric-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+  .metric-val { font-family: var(--mono); font-size: 24px; font-weight: 500; color: var(--text); line-height: 1; }
+  .metric-val.accent { color: var(--accent); }
+  .metric-val.green { color: var(--green); }
+  .badge { display: inline-block; font-family: var(--mono); font-size: 12px; font-weight: 500; letter-spacing: 0.04em; padding: 4px 10px; border-radius: 4px; }
+  .badge-green { background: var(--green-dim); color: var(--green); }
+  .badge-amber { background: var(--amber-dim); color: var(--amber); }
+  .badge-red { background: var(--red-dim); color: var(--red); }
+  .badge-blue { background: var(--accent-dim); color: var(--accent); }
+  .badge-muted { background: var(--surface2); color: var(--muted); }
+
+  .countdown-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 10px; }
+  .countdown-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+  .countdown-val { font-family: var(--mono); font-size: 40px; font-weight: 500; color: var(--text); letter-spacing: -0.02em; line-height: 1; }
+  .countdown-val.done { color: var(--green); font-size: 28px; }
+  .countdown-sub { font-size: 12px; color: var(--muted); margin-top: 6px; font-family: var(--mono); }
+
+  .refresh-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; margin-bottom: 10px; display: none; }
+  .refresh-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .refresh-label { font-family: var(--mono); font-size: 11px; color: var(--muted); letter-spacing: 0.06em; }
+  .refresh-count { font-family: var(--mono); font-size: 11px; color: var(--accent); }
+  .track { height: 3px; background: var(--surface2); border-radius: 2px; overflow: hidden; }
+  .fill { height: 100%; background: var(--accent); border-radius: 2px; width: 100%; transition: width 0.5s linear; }
+
+  .item-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; display: none; align-items: center; gap: 14px; margin-bottom: 10px; }
+  .item-img { width: 56px; height: 56px; object-fit: contain; border-radius: 6px; background: #fff; padding: 4px; flex-shrink: 0; }
+  .item-name { font-size: 13px; font-weight: 400; color: var(--text); margin-bottom: 3px; }
+  .item-price { font-family: var(--mono); font-size: 13px; color: var(--accent); }
+
+  .raw-toggle { background: none; border: none; cursor: pointer; font-family: var(--mono); font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 6px; padding: 8px 0; letter-spacing: 0.06em; transition: color 0.2s; }
+  .raw-toggle:hover { color: var(--text); }
+  .raw-toggle svg { width: 13px; height: 13px; }
+  .raw-box { display: none; margin-top: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px; font-family: var(--mono); font-size: 11px; color: var(--muted); white-space: pre-wrap; word-break: break-all; max-height: 220px; overflow-y: auto; line-height: 1.7; }
+
+  /* ── Mode tabs ── */
+  .mode-tabs { display: flex; gap: 4px; margin-bottom: 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 4px; }
+  .mode-tab { flex: 1; padding: 8px 12px; border-radius: 6px; border: none; background: none; color: var(--muted); font-family: var(--mono); font-size: 12px; letter-spacing: 0.04em; cursor: pointer; transition: background 0.15s, color 0.15s; }
+  .mode-tab.active { background: var(--surface2); color: var(--text); }
+  .mode-tab:hover:not(.active) { color: var(--text); }
+
+  /* ── Snapshot inputs ── */
+  .snap-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+  .snap-block { display: flex; flex-direction: column; gap: 6px; }
+  .snap-block textarea { height: 80px; }
+  .snap-ts { font-family: var(--mono); font-size: 10px; color: var(--muted); letter-spacing: 0.06em; min-height: 14px; padding-left: 2px; }
+  .snap-ts.set { color: var(--green); }
+
+  /* ── Velocity results ── */
+  .vel-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 10px; }
+  .vel-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; }
+  .vel-card.highlight { border-color: rgba(79,158,255,0.35); background: var(--accent-dim); }
+  .vel-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+  .vel-val { font-family: var(--mono); font-size: 22px; font-weight: 500; color: var(--text); line-height: 1; }
+  .vel-val.accent { color: var(--accent); }
+  .vel-val.green { color: var(--green); }
+  .vel-val.amber { color: var(--amber); }
+  .vel-val.red { color: var(--red); }
+  .vel-sub { font-size: 11px; color: var(--muted); margin-top: 5px; font-family: var(--mono); }
+
+  .verdict-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px 18px; margin-bottom: 10px; display: flex; align-items: flex-start; gap: 12px; }
+  .verdict-icon { font-size: 22px; flex-shrink: 0; line-height: 1; margin-top: 2px; }
+  .verdict-title { font-size: 14px; font-weight: 500; color: var(--text); margin-bottom: 4px; }
+  .verdict-body { font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+  /* ════════════════════════════════════════ HELP STYLES ══ */
+
+  .help-header { margin-bottom: 40px; padding-bottom: 24px; border-bottom: 1px solid var(--border); }
+  .help-header-top { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+  .help-header-sub { font-size: 13px; color: var(--muted); margin-left: 44px; }
+
+  .section { margin-bottom: 40px; }
+  .section-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  .help-h2 { font-size: 16px; font-weight: 500; color: var(--text); margin-bottom: 8px; }
+  .help-h3 { font-family: var(--mono); font-size: 13px; font-weight: 500; color: var(--accent); margin-bottom: 6px; margin-top: 18px; }
+  .help-p { font-size: 14px; color: var(--muted); margin-bottom: 10px; }
+  .help-p strong { color: var(--text); font-weight: 500; }
+
+  .mode-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px; }
+  .mode-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px; }
+  .mode-card.blue { border-color: rgba(79,158,255,0.25); }
+  .mode-card.green { border-color: rgba(61,220,132,0.25); }
+  .mode-title { font-family: var(--mono); font-size: 12px; font-weight: 500; margin-bottom: 8px; }
+  .mode-card.blue .mode-title { color: var(--accent); }
+  .mode-card.green .mode-title { color: var(--green); }
+  .mode-card .help-p { font-size: 13px; margin-bottom: 0; }
+
+  .steps { list-style: none; padding: 0; }
+  .step { display: flex; gap: 14px; margin-bottom: 14px; align-items: flex-start; }
+  .step-num { width: 26px; height: 26px; background: var(--surface2); border: 1px solid var(--border-bright); border-radius: 50%; font-family: var(--mono); font-size: 11px; font-weight: 500; color: var(--accent); display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+  .step-body { font-size: 14px; color: var(--muted); }
+  .step-body strong { color: var(--text); font-weight: 500; }
+  .step-body .note { display: block; margin-top: 5px; font-size: 12px; color: var(--muted); padding-left: 10px; border-left: 2px solid var(--border-bright); }
+
+  code { font-family: var(--mono); font-size: 12px; background: var(--surface2); border: 1px solid var(--border-bright); border-radius: 4px; padding: 2px 7px; color: var(--accent); }
+
+  .info-box { background: var(--accent-dim); border: 1px solid rgba(79,158,255,0.2); border-radius: 8px; padding: 14px 16px; margin: 16px 0; font-size: 13px; color: var(--text); }
+  .info-box strong { color: var(--accent); }
+  .warn-box { background: var(--amber-dim); border: 1px solid rgba(245,166,35,0.25); border-radius: 8px; padding: 14px 16px; margin: 16px 0; font-size: 13px; color: var(--text); }
+  .warn-box strong { color: var(--amber); }
+  .success-box { background: var(--green-dim); border: 1px solid rgba(61,220,132,0.25); border-radius: 8px; padding: 14px 16px; margin: 16px 0; font-size: 13px; color: var(--text); }
+  .success-box strong { color: var(--green); }
+
+  .field-table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+  .field-table th { font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border-bright); }
+  .field-table td { font-size: 13px; padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .field-table td:first-child { font-family: var(--mono); font-size: 12px; color: var(--accent); width: 38%; }
+  .field-table td:last-child { color: var(--muted); }
+  .field-table tr:last-child td { border-bottom: none; }
+  .field-table .surface-row td { background: var(--surface); }
+
+  .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+  .b-green { background: var(--green-dim); color: var(--green); }
+  .b-amber { background: var(--amber-dim); color: var(--amber); }
+  .b-red { background: var(--red-dim); color: var(--red); }
+  .b-blue { background: var(--accent-dim); color: var(--accent); }
+  .b-muted { background: var(--surface2); color: var(--muted); }
+
+  /* ── Footer ── */
+  .footer { margin-top: 48px; padding-top: 20px; border-top: 1px solid var(--border); font-family: var(--mono); font-size: 11px; color: var(--muted); text-align: center; line-height: 1.8; }
+
+  @media (max-width: 480px) {
+    body { padding: 0 14px 60px; }
+    .countdown-val { font-size: 32px; }
+    h1 { font-size: 16px; }
+    .snap-row { grid-template-columns: 1fr; }
+    .mode-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ── Top nav (always visible) ── -->
+<div class="page-nav">
+  <div class="nav-brand"><div class="dot"></div>Queue Decoder</div>
+  <button class="nav-btn" id="navBtn" onclick="togglePage()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="navIcon"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+    <span id="navLabel">Help</span>
+  </button>
+</div>
+
+<!-- ══════════════════════════════════════════════════ APP PAGE ══ -->
+<div class="page" id="pageApp">
+<div class="app-inner">
+
+  <div class="header">
+    <div class="header-top">
+      <div class="logo">
+        <svg viewBox="0 0 24 24"><path d="M17 20H7a5 5 0 0 1 0-10h.09A7.001 7.001 0 0 1 19 15M17 20a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm0 0v-6"/></svg>
+      </div>
+      <h1>Queue Decoder</h1>
+    </div>
+    <p class="header-sub">Paste a network request URL from your browser DevTools to decode queue position and wait time.</p>
+  </div>
+
+  <div class="provider-row" id="providerChips">
+    <span class="chip label">Supported:</span>
+    <span class="chip" data-p="walmart">Walmart</span>
+    <span class="chip" data-p="bestbuy">Best Buy</span>
+    <span class="chip" data-p="costco">Costco</span>
+    <span class="chip" data-p="samsclub">Sam's Club</span>
+    <span class="chip" data-p="queueit">Queue-it</span>
+    <span class="chip" data-p="cloudflare">Cloudflare</span>
+    <span class="chip" data-p="ticketmaster">Ticketmaster</span>
+    <span class="chip" data-p="generic">Generic JSON</span>
+  </div>
+
+  <div class="mode-tabs">
+    <button class="mode-tab active" id="tabDecode" onclick="switchMode('decode')">⬡ Decode Single Snapshot</button>
+    <button class="mode-tab" id="tabCompare" onclick="switchMode('compare')">⇄ Compare Two Snapshots</button>
+  </div>
+
+  <!-- DECODE MODE -->
+  <div id="modeDecodePanel">
+    <div class="input-block">
+      <label class="input-label" for="urlInput">Request URL or JSON payload</label>
+      <textarea id="urlInput" placeholder="Paste URL from DevTools Network tab&#10;e.g. https://example.com/queue?qpdata=%7B...%7D"></textarea>
+    </div>
+    <div class="btn-row">
+      <button class="btn" onclick="pasteClipboard()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Paste
+      </button>
+      <button class="btn" onclick="clearAll()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>Clear
+      </button>
+      <button class="btn primary" onclick="decode()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>Decode Queue Data
+      </button>
+    </div>
+  </div>
+
+  <!-- COMPARE MODE -->
+  <div id="modeComparePanel" style="display:none;">
+    <div class="snap-row">
+      <div class="snap-block">
+        <label class="input-label">Snapshot A — Earlier paste</label>
+        <textarea id="snapA" placeholder="Paste your first validateTickets response here"></textarea>
+        <div id="snapATs" class="snap-ts">not set</div>
+      </div>
+      <div class="snap-block">
+        <label class="input-label">Snapshot B — Later paste</label>
+        <textarea id="snapB" placeholder="Paste your second validateTickets response here"></textarea>
+        <div id="snapBTs" class="snap-ts">not set</div>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn" onclick="pasteSnapA()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Paste → A
+      </button>
+      <button class="btn" onclick="pasteSnapB()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Paste → B
+      </button>
+      <button class="btn" onclick="clearCompare()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>Clear
+      </button>
+      <button class="btn primary" onclick="runCompare()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Analyze Velocity
+      </button>
+    </div>
+    <div id="compareError" class="error" style="margin-top:12px;"></div>
+    <div id="compareResults" style="display:none; margin-top:20px;">
+      <div class="divider" style="margin-top:0;"></div>
+      <div class="vel-grid">
+        <div class="vel-card highlight">
+          <div class="vel-label">Wait Dropped</div>
+          <div id="vWaitDrop" class="vel-val accent">—</div>
+          <div class="vel-sub" id="vWaitDropSub"></div>
+        </div>
+        <div class="vel-card">
+          <div class="vel-label">Real Time Elapsed</div>
+          <div id="vElapsed" class="vel-val">—</div>
+          <div class="vel-sub" id="vElapsedSub"></div>
+        </div>
+        <div class="vel-card">
+          <div class="vel-label">Queue Velocity</div>
+          <div id="vVelocity" class="vel-val green">—</div>
+          <div class="vel-sub">min of wait / min real</div>
+        </div>
+        <div class="vel-card">
+          <div class="vel-label">Est. Tickets Ahead</div>
+          <div id="vAhead" class="vel-val amber">—</div>
+          <div class="vel-sub" id="vAheadSub"></div>
+        </div>
+      </div>
+      <div class="vel-card" style="margin-bottom:10px;">
+        <div class="vel-label">Projected Turn Time (updated)</div>
+        <div id="vTurnTime" class="vel-val" style="font-size:18px;">—</div>
+        <div class="vel-sub" id="vTurnSub"></div>
+      </div>
+      <div id="verdictCard" class="verdict-card">
+        <div id="verdictIcon" class="verdict-icon">⏳</div>
+        <div>
+          <div id="verdictTitle" class="verdict-title">Analyzing…</div>
+          <div id="verdictBody" class="verdict-body"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="errorBox" class="error"></div>
+
+  <div id="results" class="results">
+    <div class="divider"></div>
+    <div id="detectedBadge" class="detected-badge">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+      <span id="detectedText">Detected: —</span>
+    </div>
+    <div class="metrics-grid">
+      <div class="metric"><div class="metric-label">Queue Position</div><div id="mTicket" class="metric-val accent">—</div></div>
+      <div class="metric"><div class="metric-label">Queue State</div><div id="mState">—</div></div>
+      <div class="metric"><div class="metric-label">Refresh Interval</div><div id="mRefresh" class="metric-val">—</div></div>
+      <div class="metric"><div class="metric-label">Admission Odds</div><div id="mOdds">—</div></div>
+    </div>
+    <div class="countdown-card">
+      <div class="countdown-label">Time Until Your Turn</div>
+      <div id="countdown" class="countdown-val">—</div>
+      <div id="countdownSub" class="countdown-sub"></div>
+    </div>
+    <div id="refreshCard" class="refresh-card">
+      <div class="refresh-header">
+        <span class="refresh-label">Next heartbeat</span>
+        <span id="refreshCount" class="refresh-count">—</span>
+      </div>
+      <div class="track"><div id="refreshFill" class="fill"></div></div>
+    </div>
+    <div id="itemCard" class="item-card">
+      <img id="itemImg" class="item-img" src="" alt="">
+      <div><div id="itemName" class="item-name"></div><div id="itemPrice" class="item-price"></div></div>
+    </div>
+    <button class="raw-toggle" onclick="toggleRaw()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="rawArrow"><polyline points="9 18 15 12 9 6"/></svg>
+      <span id="rawLabel">Show raw JSON</span>
+    </button>
+    <div id="rawBox" class="raw-box"></div>
+  </div>
+
+  <div class="footer">
+    Queue Decoder · Works offline · No data leaves your browser<br>
+    <span style="color: var(--border-bright);">v0.1.0</span><br>
+    Created by <strong style="color: var(--text);">RockPaperPirate</strong>
+  </div>
+
+</div>
+</div>
+
+<!-- ══════════════════════════════════════════════ HELP PAGE ══ -->
+<div class="page" id="pageHelp">
+
+  <div class="help-header">
+    <div class="help-header-top">
+      <div class="logo"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg></div>
+      <h1>How to Use Queue Decoder</h1>
+    </div>
+    <p class="help-header-sub">Step-by-step instructions for both modes, field definitions, and tips for reading the queue.</p>
+  </div>
+
+  <!-- OVERVIEW -->
+  <div class="section">
+    <div class="section-label">Overview</div>
+    <div class="help-h2">What Queue Decoder does</div>
+    <p class="help-p">When you join a virtual queue on Walmart (or Best Buy, Costco, Sam's Club, and others), your browser silently sends and receives queue data behind the scenes. Queue Decoder lets you intercept that data from your browser's built-in network inspector and translate it into plain English — showing your position, estimated wait time, how fast the queue is moving, and how likely you are to actually get in.</p>
+    <p class="help-p">The app works entirely offline. <strong>No data ever leaves your browser.</strong></p>
+    <div class="mode-grid">
+      <div class="mode-card blue">
+        <div class="mode-title">⬡ Decode Single Snapshot</div>
+        <p class="help-p">Paste one response to instantly see your queue position, state, estimated turn time, and admission odds. Best for a quick check or when you first join the queue.</p>
+      </div>
+      <div class="mode-card green">
+        <div class="mode-title">⇄ Compare Two Snapshots</div>
+        <p class="help-p">Paste an earlier and a later response to calculate how fast the queue is actually moving, how many tickets have been admitted, and project a current turn time. Best for tracking progress over time.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- GETTING STARTED -->
+  <div class="section">
+    <div class="section-label">Getting Started — Walmart Queue</div>
+    <div class="help-h2">Step-by-step: from item page to decoder</div>
+    <p class="help-p">Follow these steps after you've added an item to your Walmart cart and landed on the virtual queue waiting room page.</p>
+
+    <div class="help-h3">Step 1 — Open DevTools before the queue loads</div>
+    <ol class="steps">
+      <li class="step"><div class="step-num">1</div><div class="step-body">Navigate to the Walmart product page. <strong>Before clicking anything that triggers the queue</strong>, open DevTools by pressing <code>F12</code> on Windows or <code>Cmd + Option + I</code> on Mac.<span class="note">DevTools must be open before the queue loads so it captures all traffic from the start. Opening it after means you'll miss the early requests.</span></div></li>
+      <li class="step"><div class="step-num">2</div><div class="step-body">Click the <strong>Network</strong> tab at the top of the DevTools panel.</div></li>
+    </ol>
+
+    <div class="help-h3">Step 2 — Filter to validateTickets fetch requests only</div>
+    <ol class="steps">
+      <li class="step"><div class="step-num">3</div><div class="step-body">Click the <strong>Fetch/XHR</strong> button in the filter bar. This hides images, CSS, and other noise.<span class="note">On some Chrome versions this may be labeled "Fetch" or grouped in a dropdown — look to the right of the "All" button.</span></div></li>
+      <li class="step"><div class="step-num">4</div><div class="step-body">In the text filter box at the top, type <code>validate</code>. This filters the list to only <strong>validateTickets</strong> requests.</div></li>
+      <li class="step"><div class="step-num">5</div><div class="step-body">You'll see two types of rows repeating — avoid the preflight rows, use only the fetch rows:<span class="note"><strong>❌ Preflight (skip):</strong> Empty checkbox icon on the left. Type column says "Preflight". Browser permission checks — no queue data inside.</span><span class="note"><strong>✅ Fetch (use these):</strong> Orange/red square icon on the left. Type column says "fetch". Contains your live queue JSON in the Response tab.</span></div></li>
+    </ol>
+
+    <div class="help-h3">Step 3 — Copy the response JSON</div>
+    <ol class="steps">
+      <li class="step"><div class="step-num">6</div><div class="step-body">Click one of the orange fetch <strong>validateTickets</strong> rows to select it.</div></li>
+      <li class="step"><div class="step-num">7</div><div class="step-body">In the right panel, click the <strong>Response</strong> tab (Headers · Payload · Preview · <strong>Response</strong> · Initiator · Timing).</div></li>
+      <li class="step"><div class="step-num">8</div><div class="step-body">You'll see raw JSON starting with <code>[{"site":"usgm"...</code>. Click inside it, press <code>Ctrl+A</code> to select all, then <code>Ctrl+C</code> to copy.<span class="note">The response is always a JSON array wrapped in square brackets [ ]. Copy the entire thing including the brackets.</span></div></li>
+    </ol>
+
+    <div class="info-box"><strong>Why validateTickets and not the page URL?</strong><br>The queue page URL only captures your position at load time and goes stale. The <code>validateTickets</code> endpoint is a live heartbeat — Walmart calls it every 22–37 seconds to refresh your queue data. Each response contains a recalculated estimated turn time, making it far more accurate than the original URL.</div>
+  </div>
+
+  <!-- DECODE SINGLE -->
+  <div class="section">
+    <div class="section-label">Mode 1</div>
+    <div class="help-h2">⬡ Decode Single Snapshot</div>
+    <p class="help-p">Use this mode when you first join the queue, or any time you want a quick read on your current status.</p>
+
+    <div class="help-h3">How to use it</div>
+    <ol class="steps">
+      <li class="step"><div class="step-num">1</div><div class="step-body">Make sure the <strong>Decode Single Snapshot</strong> tab is selected (default when you open the app).</div></li>
+      <li class="step"><div class="step-num">2</div><div class="step-body">Click <strong>Paste</strong> to paste from clipboard, or click inside the text box and paste with <code>Ctrl+V</code>.</div></li>
+      <li class="step"><div class="step-num">3</div><div class="step-body">Click <strong>Decode Queue Data</strong> or press <code>Enter</code>. Results appear below.</div></li>
+      <li class="step"><div class="step-num">4</div><div class="step-body">To update with a fresh snapshot, simply paste a newer response and decode again.</div></li>
+    </ol>
+
+    <div class="help-h3">What the fields mean</div>
+    <table class="field-table">
+      <tr><th>Field</th><th>What it tells you</th></tr>
+      <tr class="surface-row"><td>Queue Position</td><td>Your permanent ticket number assigned when you joined. This never changes — it's like a deli counter number, not a "people ahead of you" count.</td></tr>
+      <tr><td>Queue State</td><td><strong>pending</strong> = still waiting. <strong>valid</strong> = you've been admitted, go buy now. <strong>inqueue</strong> = actively in line.</td></tr>
+      <tr class="surface-row"><td>Refresh Interval</td><td>How often your browser checks in with Walmart's queue server. Typically 22–37 seconds. Each check is one validateTickets request.</td></tr>
+      <tr><td>Admission Odds</td><td>Walmart's server-side estimate of whether stock will last long enough to reach you. <strong>likely</strong> = good chance. <strong>unlikely</strong> = inventory may run out before your turn.</td></tr>
+      <tr class="surface-row"><td>Time Until Your Turn</td><td>Live countdown to your estimated turn time from the snapshot. Does not account for actual queue velocity — use Compare mode for a real reading.</td></tr>
+      <tr><td>Next Heartbeat bar</td><td>Countdown to the next validateTickets refresh. When it reaches zero, Walmart has sent a new position update — grab a fresh Response for updated data.</td></tr>
+    </table>
+
+    <div class="warn-box"><strong>Important:</strong> The countdown timer in Single Snapshot mode is based only on the snapshot you pasted. A frozen queue will still show the timer counting down even though your real wait isn't changing. Use Compare Two Snapshots to see actual queue velocity.</div>
+
+    <div class="help-h3">Admission Odds badge colors</div>
+    <div class="badge-row">
+      <span class="badge b-green">likely</span>
+      <span class="badge b-red">unlikely</span>
+      <span class="badge b-amber">medium</span>
+      <span class="badge b-muted">unknown</span>
+    </div>
+    <p class="help-p">If <strong>unlikely</strong> persists across multiple refreshes and queue velocity is near 0.00x, inventory has most likely sold through and the queue is in a holding pattern waiting for a restock.</p>
+  </div>
+
+  <!-- COMPARE TWO -->
+  <div class="section">
+    <div class="section-label">Mode 2</div>
+    <div class="help-h2">⇄ Compare Two Snapshots</div>
+    <p class="help-p">This mode answers the real question: <em>is the queue actually moving?</em> It takes two responses grabbed at different times and calculates queue velocity, tickets admitted, and a projected current turn time.</p>
+
+    <div class="info-box"><strong>Why this is more accurate than Single Snapshot:</strong> Walmart constantly recalculates your <code>expectedTurnTimeUnixTimestamp</code> — it can go up (backlog) or down (fast admissions) regardless of your actual position. The only reliable signal is comparing the <em>remaining wait</em> at two different real-world capture times. Compare mode does this math automatically.</div>
+
+    <div class="help-h3">How to use it</div>
+    <ol class="steps">
+      <li class="step"><div class="step-num">1</div><div class="step-body">Click the <strong>⇄ Compare Two Snapshots</strong> tab.</div></li>
+      <li class="step"><div class="step-num">2</div><div class="step-body">In DevTools, click the <strong>earliest</strong> validateTickets fetch row (scroll to the top). Copy its Response JSON.</div></li>
+      <li class="step"><div class="step-num">3</div><div class="step-body">Click <strong>Paste → A</strong>. The preview line below confirms it parsed correctly.<span class="note">You can also paste manually. The preview updates automatically as you type.</span></div></li>
+      <li class="step"><div class="step-num">4</div><div class="step-body">Go back to DevTools and click the <strong>most recent</strong> validateTickets fetch row (scroll to the bottom). Copy its Response JSON.</div></li>
+      <li class="step"><div class="step-num">5</div><div class="step-body">Click <strong>Paste → B</strong>.</div></li>
+      <li class="step"><div class="step-num">6</div><div class="step-body">Click <strong>Analyze Velocity</strong>. Results appear below.</div></li>
+    </ol>
+
+    <div class="warn-box"><strong>Tip — spacing your snapshots:</strong> The further apart your two snapshots are in real time, the more accurate the velocity reading. Aim for at least 10–15 minutes between them. If you have an hour of DevTools history, use the very first and very last rows.</div>
+
+    <div class="help-h3">What the compare fields mean</div>
+    <table class="field-table">
+      <tr><th>Field</th><th>What it tells you</th></tr>
+      <tr class="surface-row"><td>Wait Dropped</td><td>How much your remaining wait actually shrank between snapshots. A red + prefix means your wait increased (queue backlogged).</td></tr>
+      <tr><td>Real Time Elapsed</td><td>Actual wall-clock time between when you grabbed Snapshot A and B. Derived from the payload's internal timestamps.</td></tr>
+      <tr class="surface-row"><td>Queue Velocity</td><td>Ratio of wait burned vs real time. <strong>1.0x</strong> = real-time pace. <strong>2.0x</strong> = twice as fast (good). <strong>0.06x</strong> = nearly frozen (bad). <strong>0.00x</strong> = inventory gone.</td></tr>
+      <tr><td>Est. Tickets Ahead</td><td>Rough estimate of how many people are ahead of you right now, based on remaining wait at ~20 seconds per admitted customer.</td></tr>
+      <tr class="surface-row"><td>Projected Turn Time</td><td>Your estimated turn time extrapolated to the current moment using queue velocity. More accurate than the single snapshot countdown.</td></tr>
+      <tr><td>Admitted Between Snaps</td><td>Estimated tickets admitted during the time between your two snapshots.</td></tr>
+    </table>
+
+    <div class="help-h3">Velocity color guide</div>
+    <div class="badge-row">
+      <span class="badge b-green">1.5x+ Fast</span>
+      <span class="badge b-amber">0.5–1.5x Normal</span>
+      <span class="badge b-red">Under 0.5x Slow</span>
+    </div>
+    <p class="help-p">Velocity below <strong>0.10x</strong> combined with <strong>unlikely</strong> admission odds almost always means inventory has sold through and the queue is frozen waiting for a restock.</p>
+  </div>
+
+  <!-- READING SIGNALS -->
+  <div class="section">
+    <div class="section-label">Reading the Queue</div>
+    <div class="help-h2">What the signals actually mean</div>
+
+    <div class="help-h3">You're likely to get in</div>
+    <div class="success-box">Admission odds flip to <strong>likely</strong> · Velocity above 1.0x · Projected turn time under 10 minutes · State still <strong>pending</strong> but dropping fast</div>
+
+    <div class="help-h3">Queue is frozen — inventory sold out</div>
+    <div class="warn-box">Velocity is <strong>0.00x</strong> · Admission odds stuck on <strong>unlikely</strong> · Wait Dropped shows <strong>0m 0s</strong> across multiple compares · Projected turn time barely moves</div>
+    <p class="help-p">Walmart does not close the queue when stock sells out. Instead it pushes your <code>expectedTurnTimeUnixTimestamp</code> forward in near-perfect lockstep with real time, creating a frozen estimate that never counts down. This is the holding pattern — waiting for a restock.</p>
+
+    <div class="help-h3">It's your turn — act fast</div>
+    <div class="success-box"><strong>state</strong> flips from <code>pending</code> → <code>valid</code> · Walmart shows a "Buy Now" button · You have a short window (a few minutes) to complete checkout before your slot expires</div>
+
+    <div class="help-h3">Queue backlogged — wait increased</div>
+    <div class="warn-box">Wait Dropped shows a <strong>red +X minutes</strong> · Walmart pushed your turn time out due to a surge of new entrants or inventory recalculation. Typically stabilizes after a restock wave passes.</div>
+  </div>
+
+  <!-- TIPS -->
+  <div class="section">
+    <div class="section-label">Tips</div>
+    <div class="help-h2">Getting the most out of it</div>
+
+    <div class="help-h3">Order doesn't matter in Compare mode</div>
+    <p class="help-p">You can paste Snapshot A and B in the wrong order — the app detects the order automatically using the internal capture timestamps and swaps them if needed.</p>
+
+    <div class="help-h3">Keep DevTools open the whole time</div>
+    <p class="help-p">DevTools only logs requests made while it is open. If you close and reopen it, the earlier history is lost. Keep it open in a separate window to maintain a full history of all validateTickets calls.</p>
+
+    <div class="help-h3">Use the earliest row available for Snapshot A</div>
+    <p class="help-p">The longer the time gap between your two snapshots, the more accurate the velocity calculation. If you've been in the queue for an hour, the very first validateTickets row gives you the longest possible comparison window.</p>
+
+    <div class="help-h3">Show raw JSON for troubleshooting</div>
+    <p class="help-p">If a field shows N/A or the decode fails, click <strong>Show raw JSON</strong> at the bottom of the results to see exactly what fields were returned.</p>
+
+    <div class="help-h3">The app works for other retailers too</div>
+    <p class="help-p">Queue Decoder also supports Best Buy, Costco, Sam's Club, Queue-it, Cloudflare Waiting Room, and Ticketmaster. The process is identical — filter DevTools for the queue-related fetch request, copy the Response JSON, and paste it in.</p>
+  </div>
+
+  <div class="warn-box" style="text-align:center; margin-top: 40px;">
+    <strong>⚠️ Work in Progress</strong><br>
+    Queue Decoder is still being refined and may have some quirks depending on the site or payload format. It works well for most Walmart drops but your mileage may vary on other retailers. When in doubt, use the Show Raw JSON toggle to verify what data was actually parsed.
+  </div>
+
+  <div class="footer">
+    Queue Decoder · Works offline · No data leaves your browser<br>
+    <span style="color: var(--border-bright);">v0.1.0</span><br>
+    Created by <strong style="color: var(--text);">RockPaperPirate</strong>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════ JS ══ -->
+<script>
+// ── Page toggle ───────────────────────────────────────────────────────
+var onHelp = false;
+function togglePage() {
+  onHelp = !onHelp;
+  document.getElementById('pageApp').style.display  = onHelp ? 'none' : 'block';
+  document.getElementById('pageHelp').style.display = onHelp ? 'block' : 'none';
+  document.getElementById('navLabel').textContent   = onHelp ? '← Back to App' : 'Help';
+  document.getElementById('navIcon').innerHTML      = onHelp
+    ? '<polyline points="15 18 9 12 15 6"/>'
+    : '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>';
+  window.scrollTo(0, 0);
+}
+
+// ── App state ─────────────────────────────────────────────────────────
+var countdownTimer = null;
+var refreshTimer = null;
+var refreshMs = 0;
+var refreshStart = 0;
+
+// ── Provider detection & parsing ──────────────────────────────────────
+function detectAndParse(input) {
+  input = input.trim();
+  if (input.includes('qpdata=')) {
+    var url = new URL(input.startsWith('http') ? input : 'https://x.com/?' + input);
+    var raw = decodeURIComponent(url.searchParams.get('qpdata'));
+    var data = JSON.parse(raw);
+    return { provider: 'Walmart', data: normalizeWalmart(data), raw: data };
+  }
+  if (input.includes('bestbuy.com') || input.includes('bestbuy.queue-it.net') || input.includes('api.bestbuy.com/queuing')) return parseBestBuy(input);
+  if (input.includes('costco.com') || input.includes('costco.queue-it.net') || input.includes('costco-waitingroom')) return parseCostco(input);
+  if (input.includes('samsclub.com') || input.includes('samsclub.queue-it.net')) return parseSamsClub(input);
+  if (input.includes('queue-it.net') || input.includes('/queue/')) return parseQueueIt(input);
+  if (input.includes('cdn-cgi') || input.includes('waitingroom') || input.includes('cf-waiting')) return parseCloudflare(input);
+  if (input.includes('ticketmaster') || input.includes('tm.queue') || input.includes('livenation')) return parseTicketmaster(input);
+  var jsonStr = input;
+  if (input.startsWith('%7B') || input.startsWith('%5B')) jsonStr = decodeURIComponent(input);
+  if (jsonStr.startsWith('{') || jsonStr.startsWith('[')) {
+    var data = JSON.parse(jsonStr);
+    var obj = Array.isArray(data) ? data[0] : data;
+    if (obj.ticket !== undefined && obj.queue !== undefined && obj.shard !== undefined) {
+      var isSams = (obj.site && obj.site.toLowerCase().includes('sam')) || false;
+      return { provider: isSams ? "Sam's Club" : 'Walmart', data: normalizeWalmart(obj), raw: data };
+    }
+    return { provider: 'Generic JSON', data: normalizeGeneric(obj), raw: data };
+  }
+  try {
+    var url2 = new URL(input.startsWith('http') ? input : 'https://x.com/?' + input);
+    var found = null;
+    url2.searchParams.forEach(function(v, k) {
+      if (!found && (v.startsWith('%7B') || v.startsWith('{'))) {
+        var decoded = decodeURIComponent(v);
+        found = { provider: 'Generic JSON (' + k + ')', data: normalizeGeneric(JSON.parse(decoded)), raw: JSON.parse(decoded) };
+      }
+    });
+    if (found) return found;
+  } catch(e) {}
+  throw new Error('Could not detect a supported queue format. See the supported providers listed above.');
+}
+
+function normalizeWalmart(d) {
+  var meta = d.customMetadata || {};
+  var item = meta.item || null;
+  var rms = d.nextRefreshRelativeTime || null;
+  if (!rms && d.nextRefreshUnixTimestamp) rms = Math.max(1000, d.nextRefreshUnixTimestamp - Date.now());
+  return {
+    position: d.ticket || null, state: d.state || null, refreshMs: rms,
+    likelihood: meta.admissionLikelihood || null, turnTs: d.expectedTurnTimeUnixTimestamp || null,
+    item: item ? { name: item.name, price: item.currentPrice || item.price, img: item.imageURL || item.imageUrl } : null
+  };
+}
+
+function parseBestBuy(input) {
+  try {
+    var jsonStr = input.startsWith('http') ? null : input;
+    if (!jsonStr && input.includes('{')) jsonStr = input.substring(input.indexOf('{'));
+    if (jsonStr) {
+      try {
+        var d = JSON.parse(jsonStr);
+        var wait = d.expectedWaitTimeInMinutes || d.waitTimeMinutes || null;
+        var sku = d.sku || d.skuId || null;
+        var itemName = d.productName || d.name || (sku ? 'SKU ' + sku : null);
+        var itemPrice = d.salePrice || d.price || null;
+        return { provider: 'Best Buy', data: { position: d.numberInQueue || d.queuePosition || d.position || null, state: d.onQueueItemState || d.status || d.state || 'inqueue', refreshMs: (d.refreshInterval || 10) * 1000, likelihood: d.admissionLikelihood || null, turnTs: wait ? Date.now() + parseFloat(wait) * 60000 : null, item: itemName ? { name: itemName, price: itemPrice ? '$' + itemPrice : null, img: d.imageUrl || d.thumbnailImage || null } : null }, raw: d };
+      } catch(e) {}
+    }
+    var url = new URL(input.startsWith('http') ? input : 'https://x.com/?' + input);
+    var pos = url.searchParams.get('q') || url.searchParams.get('queuePosition') || url.searchParams.get('numberInQueue');
+    var wait2 = url.searchParams.get('expectedWaitTimeInMinutes') || url.searchParams.get('waitMinutes');
+    var state = url.searchParams.get('onQueueItemState') || url.searchParams.get('status') || 'inqueue';
+    var sku2 = url.searchParams.get('sku') || url.searchParams.get('skuId');
+    return { provider: 'Best Buy', data: { position: pos, state: state, refreshMs: 10000, likelihood: null, turnTs: wait2 ? Date.now() + parseFloat(wait2) * 60000 : null, item: sku2 ? { name: 'SKU ' + sku2, price: null, img: null } : null }, raw: Object.fromEntries(url.searchParams) };
+  } catch(e) { throw new Error('Could not parse Best Buy queue data: ' + e.message); }
+}
+
+function parseCostco(input) {
+  try {
+    var jsonStr = input.startsWith('http') ? null : input;
+    if (!jsonStr && input.includes('{')) jsonStr = input.substring(input.indexOf('{'));
+    if (jsonStr) {
+      try {
+        var d = JSON.parse(jsonStr);
+        var wait = d.expectedWaitTime || d.expectedWaitTimeInMinutes || d.waitMinutes || null;
+        var turnTs = null;
+        if (wait) { var waitNum = parseFloat(wait); turnTs = waitNum > 1000 ? Date.now() + waitNum * 1000 : Date.now() + waitNum * 60000; }
+        return { provider: 'Costco', data: { position: d.queueNumber || d.numberInQueue || d.position || d.ticket || null, state: d.queueStatus || d.status || d.state || 'waiting', refreshMs: (d.refreshInterval || d.pollingInterval || 15) * 1000, likelihood: d.admissionLikelihood || null, turnTs: turnTs, item: null }, raw: d };
+      } catch(e) {}
+    }
+    var url = new URL(input.startsWith('http') ? input : 'https://x.com/?' + input);
+    var pos = url.searchParams.get('q') || url.searchParams.get('queueNumber') || url.searchParams.get('numberInQueue');
+    var wait2 = url.searchParams.get('expectedWaitTimeInMinutes') || url.searchParams.get('expectedWaitTime');
+    var state = url.searchParams.get('onQueueItemState') || url.searchParams.get('queueStatus') || 'waiting';
+    return { provider: 'Costco', data: { position: pos, state: state, refreshMs: 15000, likelihood: null, turnTs: wait2 ? Date.now() + parseFloat(wait2) * 60000 : null, item: null }, raw: Object.fromEntries(url.searchParams) };
+  } catch(e) { throw new Error('Could not parse Costco queue data: ' + e.message); }
+}
+
+function parseSamsClub(input) {
+  if (input.includes('qpdata=')) {
+    try {
+      var url = new URL(input.startsWith('http') ? input : 'https://x.com/?' + input);
+      var raw = decodeURIComponent(url.searchParams.get('qpdata'));
+      var d = JSON.parse(raw);
+      return { provider: "Sam's Club", data: normalizeWalmart(d), raw: d };
+    } catch(e) {}
+  }
+  try {
+    var jsonStr = input.startsWith('http') ? null : input;
+    if (!jsonStr && input.includes('{')) jsonStr = input.substring(input.indexOf('{'));
+    if (jsonStr) {
+      try {
+        var d2 = JSON.parse(jsonStr);
+        var wait = d2.expectedWaitTimeInMinutes || d2.waitMinutes || d2.estimatedWait || null;
+        return { provider: "Sam's Club", data: { position: d2.numberInQueue || d2.queuePosition || d2.ticket || d2.position || null, state: d2.onQueueItemState || d2.queueStatus || d2.state || 'inqueue', refreshMs: d2.refreshInterval || d2.nextRefreshRelativeTime || 10000, likelihood: d2.admissionLikelihood || null, turnTs: wait ? Date.now() + parseFloat(wait) * 60000 : (d2.expectedTurnTimeUnixTimestamp || null), item: null }, raw: d2 };
+      } catch(e) {}
+    }
+    var url2 = new URL(input.startsWith('http') ? input : 'https://x.com/?' + input);
+    var pos2 = url2.searchParams.get('q') || url2.searchParams.get('queuePosition') || url2.searchParams.get('numberInQueue');
+    var wait3 = url2.searchParams.get('expectedWaitTimeInMinutes') || url2.searchParams.get('wait');
+    var state2 = url2.searchParams.get('onQueueItemState') || url2.searchParams.get('status') || 'inqueue';
+    return { provider: "Sam's Club", data: { position: pos2, state: state2, refreshMs: 10000, likelihood: null, turnTs: wait3 ? Date.now() + parseFloat(wait3) * 60000 : null, item: null }, raw: Object.fromEntries(url2.searchParams) };
+  } catch(e) { throw new Error("Could not parse Sam's Club queue data: " + e.message); }
+}
+
+function parseQueueIt(input) {
+  try {
+    var url = new URL(input.startsWith('http') ? input : 'https://x.com/?' + input);
+    var pos = url.searchParams.get('q') || url.searchParams.get('queue') || url.searchParams.get('numberInQueue');
+    var wait = url.searchParams.get('expectedWaitTimeInMinutes') || url.searchParams.get('wait');
+    var state = url.searchParams.get('onQueueItemState') || url.searchParams.get('state');
+    var ts = url.searchParams.get('ts') || url.searchParams.get('expectedWaitTimeUtc');
+    var turnTs = null;
+    if (wait) turnTs = Date.now() + parseFloat(wait) * 60000;
+    if (ts && !isNaN(Number(ts))) turnTs = Number(ts) > 1e12 ? Number(ts) : Number(ts) * 1000;
+    return { provider: 'Queue-it', data: { position: pos, state: state || 'inqueue', refreshMs: 10000, likelihood: null, turnTs: turnTs, item: null }, raw: Object.fromEntries(url.searchParams) };
+  } catch(e) {
+    try { var d = JSON.parse(input); return { provider: 'Queue-it', data: normalizeQueueItJson(d), raw: d }; } catch(e2) {}
+    throw new Error('Could not parse Queue-it data: ' + e.message);
+  }
+}
+
+function normalizeQueueItJson(d) {
+  var wait = d.expectedWaitTimeInMinutes || d.waitTimeInMinutes || null;
+  return { position: d.numberInQueue || d.queueNumber || d.position || null, state: d.onQueueItemState || d.state || (d.isInQueue ? 'inqueue' : null), refreshMs: (d.refreshInterval || 10) * 1000, likelihood: null, turnTs: wait ? Date.now() + parseFloat(wait) * 60000 : (d.expectedEnterTimeUtc ? new Date(d.expectedEnterTimeUtc).getTime() : null), item: null };
+}
+
+function parseCloudflare(input) {
+  try {
+    var d = JSON.parse(input.startsWith('http') ? '{}' : input);
+    return { provider: 'Cloudflare Waiting Room', data: { position: d.queue_position || d.position || null, state: d.status || d.state || 'waiting', refreshMs: (d.refresh_rate || 20) * 1000, likelihood: null, turnTs: d.estimated_wait_mins ? Date.now() + d.estimated_wait_mins * 60000 : null, item: null }, raw: d };
+  } catch(e) {
+    try { var url = new URL(input.startsWith('http') ? input : 'https://x.com/?' + input); return { provider: 'Cloudflare Waiting Room', data: { position: url.searchParams.get('queue_position'), state: 'waiting', refreshMs: 20000, likelihood: null, turnTs: null, item: null }, raw: Object.fromEntries(url.searchParams) }; } catch(e2) { throw new Error('Could not parse Cloudflare data.'); }
+  }
+}
+
+function parseTicketmaster(input) {
+  try {
+    var url = new URL(input.startsWith('http') ? input : 'https://x.com/?' + input);
+    var pos = url.searchParams.get('queuePosition') || url.searchParams.get('position') || url.searchParams.get('numInLine');
+    var wait = url.searchParams.get('estimatedWait') || url.searchParams.get('waitMinutes');
+    return { provider: 'Ticketmaster', data: { position: pos, state: url.searchParams.get('status') || 'waiting', refreshMs: 15000, likelihood: null, turnTs: wait ? Date.now() + parseFloat(wait) * 60000 : null, item: null }, raw: Object.fromEntries(url.searchParams) };
+  } catch(e) { throw new Error('Could not parse Ticketmaster data: ' + e.message); }
+}
+
+function normalizeGeneric(d) {
+  var pos = d.ticket || d.position || d.queuePosition || d.numberInQueue || d.number || d.place || d.rank || null;
+  var state = d.state || d.status || d.queueState || null;
+  var rms = d.nextRefreshRelativeTime || (d.refreshInterval ? (d.refreshInterval > 1000 ? d.refreshInterval : d.refreshInterval * 1000) : null);
+  var turnTs = d.expectedTurnTimeUnixTimestamp || d.turnTime || d.estimatedAdmissionTime || null;
+  if (turnTs && turnTs < 1e12) turnTs *= 1000;
+  var waitMin = d.expectedWaitTimeInMinutes || d.waitMinutes || d.waitTime || null;
+  if (waitMin && !turnTs) turnTs = Date.now() + parseFloat(waitMin) * 60000;
+  var likelihood = null;
+  if (d.customMetadata) { var meta = d.customMetadata; likelihood = meta.admissionLikelihood || null; if (meta.item && !d.item) d.item = meta.item; }
+  var item = null;
+  if (d.item) item = { name: d.item.name, price: d.item.currentPrice || d.item.price, img: d.item.imageURL || d.item.imageUrl || d.item.image };
+  return { position: pos, state: state, refreshMs: rms, likelihood: likelihood, turnTs: turnTs, item: item };
+}
+
+// ── Render ────────────────────────────────────────────────────────────
+function decode() {
+  clearTimers();
+  var input = document.getElementById('urlInput').value;
+  var errBox = document.getElementById('errorBox');
+  var results = document.getElementById('results');
+  errBox.style.display = 'none';
+  results.style.display = 'none';
+  highlightChip(null);
+  if (!input.trim()) { showError('Paste a URL or JSON payload first.'); return; }
+  try {
+    var result = detectAndParse(input);
+    var d = result.data;
+    highlightChip(result.provider);
+    document.getElementById('detectedText').textContent = 'Detected: ' + result.provider;
+    document.getElementById('mTicket').textContent = d.position != null ? '#' + d.position : 'N/A';
+    var stateEl = document.getElementById('mState');
+    var state = (d.state || '').toLowerCase();
+    stateEl.innerHTML = state ? '<span class="badge ' + stateBadgeClass(state) + '">' + state + '</span>' : '<span class="badge badge-muted">N/A</span>';
+    refreshMs = d.refreshMs || 0;
+    document.getElementById('mRefresh').textContent = refreshMs ? Math.round(refreshMs / 1000) + 's' : 'N/A';
+    var oddsEl = document.getElementById('mOdds');
+    var odds = (d.likelihood || '').toLowerCase();
+    oddsEl.innerHTML = odds ? '<span class="badge ' + oddsBadgeClass(odds) + '">' + odds + '</span>' : '<span class="badge badge-muted">N/A</span>';
+    if (d.turnTs) {
+      startCountdown(d.turnTs);
+      var abs = new Date(d.turnTs);
+      document.getElementById('countdownSub').textContent = 'Expected at ' + abs.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    } else {
+      document.getElementById('countdown').className = 'countdown-val';
+      document.getElementById('countdown').textContent = 'Not provided';
+      document.getElementById('countdownSub').textContent = '';
+    }
+    if (refreshMs > 0) { refreshStart = Date.now(); document.getElementById('refreshCard').style.display = 'block'; startRefreshBar(refreshMs); } else { document.getElementById('refreshCard').style.display = 'none'; }
+    if (d.item) { document.getElementById('itemCard').style.display = 'flex'; document.getElementById('itemName').textContent = d.item.name || 'Unknown item'; document.getElementById('itemPrice').textContent = d.item.price || ''; document.getElementById('itemImg').src = d.item.img || ''; document.getElementById('itemImg').alt = d.item.name || ''; } else { document.getElementById('itemCard').style.display = 'none'; }
+    document.getElementById('rawBox').textContent = JSON.stringify(result.raw, null, 2);
+    document.getElementById('rawBox').style.display = 'none';
+    document.getElementById('rawLabel').textContent = 'Show raw JSON';
+    results.style.display = 'block';
+  } catch(e) { showError('Parse failed: ' + e.message); }
+}
+
+// ── Timers ────────────────────────────────────────────────────────────
+function startCountdown(ts) {
+  function tick() {
+    var diff = ts - Date.now();
+    var el = document.getElementById('countdown');
+    if (diff <= 0) { el.className = 'countdown-val done'; el.textContent = 'Your turn!'; clearInterval(countdownTimer); return; }
+    el.className = 'countdown-val';
+    var h = Math.floor(diff / 3600000), m = Math.floor((diff % 3600000) / 60000), s = Math.floor((diff % 60000) / 1000);
+    el.textContent = (h > 0 ? pad(h) + ':' : '') + pad(m) + ':' + pad(s);
+  }
+  tick(); countdownTimer = setInterval(tick, 1000);
+}
+function startRefreshBar(ms) {
+  function tick() {
+    var elapsed = Date.now() - refreshStart;
+    var pct = Math.max(0, 100 - (elapsed / ms) * 100);
+    document.getElementById('refreshFill').style.width = pct.toFixed(1) + '%';
+    document.getElementById('refreshCount').textContent = Math.max(0, Math.ceil((ms - elapsed) / 1000)) + 's';
+    if (elapsed >= ms) clearInterval(refreshTimer);
+  }
+  tick(); refreshTimer = setInterval(tick, 500);
+}
+function clearTimers() { clearInterval(countdownTimer); clearInterval(refreshTimer); }
+function pad(n) { return n < 10 ? '0' + n : '' + n; }
+
+// ── Helpers ───────────────────────────────────────────────────────────
+function stateBadgeClass(s) {
+  if (s.includes('admit') || s.includes('enter') || s.includes('allow') || s.includes('valid')) return 'badge-green';
+  if (s.includes('wait') || s.includes('queue') || s.includes('pending')) return 'badge-blue';
+  if (s.includes('block') || s.includes('deny')) return 'badge-red';
+  return 'badge-muted';
+}
+function oddsBadgeClass(o) {
+  if (o === 'likely' || o === 'high') return 'badge-green';
+  if (o === 'unlikely' || o === 'low') return 'badge-red';
+  if (o === 'medium' || o === 'moderate') return 'badge-amber';
+  return 'badge-muted';
+}
+function highlightChip(provider) {
+  var p = provider ? provider.toLowerCase().replace(/['\s]/g, '') : '';
+  document.querySelectorAll('.chip[data-p]').forEach(function(c) {
+    c.classList.remove('active');
+    if (p && p.includes(c.dataset.p.replace(/['\s]/g, ''))) c.classList.add('active');
+  });
+}
+function showError(msg) { var e = document.getElementById('errorBox'); e.textContent = msg; e.style.display = 'block'; }
+function clearAll() { clearTimers(); document.getElementById('urlInput').value = ''; document.getElementById('errorBox').style.display = 'none'; document.getElementById('results').style.display = 'none'; highlightChip(null); }
+function pasteClipboard() {
+  if (navigator.clipboard && navigator.clipboard.readText) { navigator.clipboard.readText().then(function(t) { document.getElementById('urlInput').value = t; document.getElementById('urlInput').focus(); }).catch(function() { document.getElementById('urlInput').focus(); }); } else { document.getElementById('urlInput').focus(); }
+}
+function toggleRaw() {
+  var box = document.getElementById('rawBox'), lbl = document.getElementById('rawLabel'), arrow = document.getElementById('rawArrow');
+  var open = box.style.display === 'block';
+  box.style.display = open ? 'none' : 'block';
+  lbl.textContent = open ? 'Show raw JSON' : 'Hide raw JSON';
+  arrow.style.transform = open ? '' : 'rotate(90deg)';
+}
+
+// ── Mode switching ────────────────────────────────────────────────────
+function switchMode(mode) {
+  var isCompare = mode === 'compare';
+  document.getElementById('tabDecode').classList.toggle('active', !isCompare);
+  document.getElementById('tabCompare').classList.toggle('active', isCompare);
+  document.getElementById('modeDecodePanel').style.display = isCompare ? 'none' : 'block';
+  document.getElementById('modeComparePanel').style.display = isCompare ? 'block' : 'none';
+  document.getElementById('errorBox').style.display = 'none';
+  document.getElementById('results').style.display = 'none';
+}
+
+// ── Compare mode ──────────────────────────────────────────────────────
+function extractNextRefreshTs(raw) {
+  var obj = Array.isArray(raw) ? raw[0] : raw;
+  if (obj.nextRefreshUnixTimestamp && obj.nextRefreshRelativeTime) return obj.nextRefreshUnixTimestamp - obj.nextRefreshRelativeTime;
+  return null;
+}
+function pasteSnapA() { if (navigator.clipboard && navigator.clipboard.readText) { navigator.clipboard.readText().then(function(t) { document.getElementById('snapA').value = t; previewSnap('A', t); }).catch(function() { document.getElementById('snapA').focus(); }); } else { document.getElementById('snapA').focus(); } }
+function pasteSnapB() { if (navigator.clipboard && navigator.clipboard.readText) { navigator.clipboard.readText().then(function(t) { document.getElementById('snapB').value = t; previewSnap('B', t); }).catch(function() { document.getElementById('snapB').focus(); }); } else { document.getElementById('snapB').focus(); } }
+function previewSnap(slot, text) {
+  var el = document.getElementById('snap' + slot + 'Ts');
+  if (!text.trim()) { el.textContent = 'not set'; el.className = 'snap-ts'; return; }
+  try {
+    var parsed = detectAndParse(text.trim()); var d = parsed.data; var msg = '';
+    if (d.turnTs) { var t = new Date(d.turnTs); msg = 'turn ~' + t.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}); }
+    if (d.position) msg = (msg ? msg + ' · ' : '') + 'ticket #' + d.position;
+    if (d.likelihood) msg = (msg ? msg + ' · ' : '') + d.likelihood;
+    el.textContent = msg || 'parsed OK'; el.className = 'snap-ts set';
+  } catch(e) { el.textContent = 'parse error'; el.className = 'snap-ts'; }
+}
+document.getElementById('snapA').addEventListener('input', function() { previewSnap('A', this.value); });
+document.getElementById('snapB').addEventListener('input', function() { previewSnap('B', this.value); });
+function clearCompare() {
+  ['snapA','snapB'].forEach(function(id) { document.getElementById(id).value = ''; });
+  ['snapATs','snapBTs'].forEach(function(id) { document.getElementById(id).textContent = 'not set'; document.getElementById(id).className = 'snap-ts'; });
+  document.getElementById('compareError').style.display = 'none';
+  document.getElementById('compareResults').style.display = 'none';
+}
+function showCompareError(msg) { var e = document.getElementById('compareError'); e.textContent = msg; e.style.display = 'block'; }
+
+function runCompare() {
+  var errEl = document.getElementById('compareError'), resEl = document.getElementById('compareResults');
+  errEl.style.display = 'none'; resEl.style.display = 'none';
+  var rawA = document.getElementById('snapA').value.trim(), rawB = document.getElementById('snapB').value.trim();
+  if (!rawA || !rawB) { showCompareError('Paste a response into both Snapshot A and Snapshot B first.'); return; }
+  try {
+    var pA = detectAndParse(rawA), pB = detectAndParse(rawB);
+    var dA = pA.data, dB = pB.data;
+    if (!dA.turnTs || !dB.turnTs) { showCompareError('Both snapshots need an expectedTurnTimeUnixTimestamp to compare.'); return; }
+
+    var parsedRawA = null, parsedRawB = null;
+    try { parsedRawA = JSON.parse(rawA); } catch(e) {}
+    try { parsedRawB = JSON.parse(rawB); } catch(e) {}
+    var capA = parsedRawA ? extractNextRefreshTs(parsedRawA) : null;
+    var capB = parsedRawB ? extractNextRefreshTs(parsedRawB) : null;
+
+    var remainA = (capA && dA.turnTs) ? Math.max(0, dA.turnTs - capA) : null;
+    var remainB = (capB && dB.turnTs) ? Math.max(0, dB.turnTs - capB) : null;
+    var realElapsedMs = (capA && capB) ? (capB - capA) : null;
+    var swapped = false;
+    if (realElapsedMs !== null && realElapsedMs < 0) swapped = true;
+    else if (realElapsedMs === null && remainA !== null && remainB !== null && remainA < remainB) swapped = true;
+    if (swapped) {
+      var tmp = dA; dA = dB; dB = tmp;
+      var tmpR = pA; pA = pB; pB = tmpR;
+      var tmpCap = capA; capA = capB; capB = tmpCap;
+      var tmpRem = remainA; remainA = remainB; remainB = tmpRem;
+      if (realElapsedMs !== null) realElapsedMs = -realElapsedMs;
+    }
+    var turnDiffMs = (remainA !== null && remainB !== null) ? (remainA - remainB) : (dA.turnTs - dB.turnTs);
+    var velocity = null;
+    if (realElapsedMs && realElapsedMs > 5000) velocity = turnDiffMs / realElapsedMs;
+    var AVG_SERVICE_SEC = 20;
+    var remainNowMs = remainB !== null ? remainB : 0;
+    if (capB && velocity !== null) { var msSinceCapB0 = Math.max(0, Date.now() - capB); remainNowMs = Math.max(0, remainB - msSinceCapB0 * velocity); }
+    else if (capB && velocity === null && remainB !== null) { remainNowMs = Math.max(0, remainB - Math.max(0, Date.now() - capB)); }
+    var ticketsAhead = Math.round(remainNowMs / (AVG_SERVICE_SEC * 1000));
+    var ticketsBurnedEstimate = turnDiffMs > 0 ? Math.round(turnDiffMs / (AVG_SERVICE_SEC * 1000)) : 0;
+
+    var absDiff = Math.abs(turnDiffMs);
+    var dropMin = Math.floor(absDiff / 60000), dropSec = Math.round((absDiff % 60000) / 1000);
+    var dropEl = document.getElementById('vWaitDrop');
+    if (turnDiffMs < 0) { dropEl.textContent = '+' + dropMin + 'm ' + dropSec + 's'; dropEl.className = 'vel-val red'; document.getElementById('vWaitDropSub').textContent = 'wait INCREASED — queue backlogged'; }
+    else if (turnDiffMs === 0) { dropEl.textContent = '0s'; dropEl.className = 'vel-val amber'; document.getElementById('vWaitDropSub').textContent = 'no change — queue stalled'; }
+    else { dropEl.textContent = dropMin + 'm ' + dropSec + 's'; dropEl.className = 'vel-val accent'; document.getElementById('vWaitDropSub').textContent = 'remaining wait reduced'; }
+
+    if (realElapsedMs) { var eMin = Math.floor(realElapsedMs / 60000), eSec = Math.round((realElapsedMs % 60000) / 1000); document.getElementById('vElapsed').textContent = eMin + 'm ' + eSec + 's'; document.getElementById('vElapsedSub').textContent = 'between captures'; }
+    else { document.getElementById('vElapsed').textContent = 'N/A'; document.getElementById('vElapsedSub').textContent = 'capture times not in payload'; }
+
+    if (velocity !== null) { document.getElementById('vVelocity').textContent = velocity.toFixed(2) + 'x'; var vEl = document.getElementById('vVelocity'); vEl.className = 'vel-val ' + (velocity >= 1.5 ? 'green' : velocity >= 0.8 ? 'amber' : 'red'); }
+    else { document.getElementById('vVelocity').textContent = '~' + (turnDiffMs > 0 ? 'moving' : 'stalled'); }
+
+    document.getElementById('vAhead').textContent = '~' + ticketsAhead;
+    document.getElementById('vAheadSub').textContent = '≈' + ticketsBurnedEstimate + ' admitted between snaps';
+
+    var projectedTurnTs = dB.turnTs, projectionNote = 'from latest snapshot (no velocity data)';
+    if (capB && velocity !== null && velocity > 0) { var msSinceCapB = Date.now() - capB; if (msSinceCapB > 0) { projectedTurnTs = dB.turnTs - msSinceCapB * velocity; projectionNote = 'extrapolated ' + Math.round(msSinceCapB / 1000) + 's forward at ' + velocity.toFixed(2) + 'x velocity'; } }
+    else if (capB) { var msSinceCapB2 = Date.now() - capB; if (msSinceCapB2 > 0) { projectedTurnTs = dB.turnTs - msSinceCapB2; projectionNote = 'extrapolated 1:1 (paste snapshots further apart for better accuracy)'; } }
+
+    var remaining = projectedTurnTs - Date.now();
+    if (remaining > 0) { var rh = Math.floor(remaining / 3600000), rm = Math.floor((remaining % 3600000) / 60000), rs = Math.floor((remaining % 60000) / 1000); document.getElementById('vTurnTime').textContent = (rh > 0 ? pad(rh) + ':' : '') + pad(rm) + ':' + pad(rs); document.getElementById('vTurnSub').textContent = new Date(projectedTurnTs).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'}) + ' · ' + projectionNote; }
+    else { document.getElementById('vTurnTime').textContent = '~now (overdue ~' + Math.abs(Math.round(remaining / 60000)) + 'm)'; document.getElementById('vTurnSub').textContent = 'Projected turn already passed — grab a fresh snapshot to confirm your state'; }
+
+    var likelihood = dB.likelihood || dA.likelihood || '';
+    var icon, title, body;
+    if (turnDiffMs < 0) { icon = '📈'; title = 'Queue wait increased — backlog detected'; body = 'Your remaining wait grew by ' + dropMin + 'm ' + dropSec + 's between snapshots. Walmart pushed the turn time further out, likely due to a surge of new entrants or inventory recalculation. This is common during drops — wait and monitor.'; }
+    else if (likelihood === 'unlikely' && ticketsAhead > 50) { icon = '⚠️'; title = 'Queue is deep and inventory is tight'; body = 'The queue has ~' + ticketsAhead + ' tickets ahead of you and the server is flagging admission as unlikely. The wait will keep dropping but you may not get in if stock runs out. Keep watching — odds can flip if inventory is restocked.'; }
+    else if (velocity !== null && velocity < 0.5) { icon = '🐢'; title = 'Queue is moving slowly'; body = 'The wait time is burning at ' + (velocity * 60).toFixed(0) + ' minutes per real-world hour. At this pace you have ~' + Math.round(ticketsAhead * AVG_SERVICE_SEC / 60) + ' minutes left.'; }
+    else if (velocity !== null && velocity >= 1.5) { icon = '🚀'; title = 'Queue is burning fast'; body = 'Wait time is dropping ' + velocity.toFixed(1) + 'x faster than real time. ~' + ticketsAhead + ' tickets ahead of you — you\'re getting through quickly.'; }
+    else if (likelihood === 'likely') { icon = '✅'; title = 'Looking good — likely to get in'; body = '~' + ticketsAhead + ' tickets ahead and the server considers your admission likely. Keep the tab open and watch for the state to flip from pending → valid.'; }
+    else { icon = '⏳'; title = 'Queue is moving'; body = 'Wait dropped ' + dropMin + 'm ' + dropSec + 's between your two snapshots. ~' + ticketsAhead + ' tickets still ahead. Grab another snapshot in a few minutes to track the pace.'; }
+
+    document.getElementById('verdictIcon').textContent = icon;
+    document.getElementById('verdictTitle').textContent = title;
+    document.getElementById('verdictBody').textContent = body;
+    resEl.style.display = 'block';
+  } catch(e) { showCompareError('Compare failed: ' + e.message); }
+}
+
+document.getElementById('urlInput').addEventListener('keydown', function(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); decode(); } });
+</script>
+</body>
+</html>
